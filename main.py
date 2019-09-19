@@ -1,3 +1,4 @@
+import argparse
 import os
 import string
 import json
@@ -95,14 +96,14 @@ def format_filename(s):
 download_dir = "./downloads"
 
 if __name__ == "__main__":
-
-    # start_url = "https://e-hentai.org/g/1486726/58c4be5083/"
-    start_url = "https://e-hentai.org/g/1486699/c7081c5c15/"
-    assert is_a_valid_start_url(start_url)
+    parser = argparse.ArgumentParser(description='e-hentai gallery scraper')
+    parser.add_argument('url', help='URL to e-hentai gallery')
+    args = parser.parse_args()
+    assert is_a_valid_start_url(args.url)
 
     manager = DownloadManager()
 
-    image_links, image_set_name = manager.get_image_links(start_url)
+    image_links, image_set_name = manager.get_image_links(args.url)
     manager.create_image_dir(image_set_name)
 
     for image_link in image_links:
