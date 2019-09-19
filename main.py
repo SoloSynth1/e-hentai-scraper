@@ -1,10 +1,7 @@
 import argparse
 import os
 import json
-import re
 import hashlib
-
-import unicodedata
 
 from requests_html import HTMLSession
 
