@@ -1,0 +1,1 @@
+This is the folder to store downloaded image sets. **Do not delete.**
