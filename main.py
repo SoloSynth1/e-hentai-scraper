@@ -2,6 +2,7 @@ import argparse
 import os
 import json
 import re
+import hashlib
 
 import unicodedata
 
@@ -22,8 +23,8 @@ class DownloadManager:
         response = self.session.get(url, headers=self.headers)
         title_elements = response.html.find('h1')
         link_elements = response.html.find('a')
-        image_set_name = get_image_set_name(title_elements)
-        assert image_set_name
+        image_set_names = get_image_set_names(title_elements)
+        assert image_set_names
         image_links = filter_links(link_elements, 'href', '/s/')
         page_links = filter_links(link_elements, 'href', '?p=')
         if page_links:
@@ -31,10 +32,10 @@ class DownloadManager:
                 response = self.session.get(link, headers=self.headers)
                 link_elements = response.html.find('a')
                 image_links += filter_links(link_elements, 'href', '/s/')
-        return image_links, image_set_name
+        return image_links, image_set_names
 
-    def create_image_dir(self, dir_name):
-        dir_name = slugify(dir_name)
+    def create_image_dir(self, image_set_names):
+        dir_name = hash(image_set_names['gn'])
         full_dir_path = os.path.join(download_dir, dir_name)
         if dir_name not in os.listdir(download_dir) and not os.path.isdir(full_dir_path):
             os.mkdir(full_dir_path)
@@ -70,14 +71,29 @@ class DownloadManager:
         else:
             print("failed to download file. quota is likely to be exceeded.")
 
+    def write_metadata(self, image_set_names, image_links):
+        assert self.download_path
+        meta = {
+            "title_en": image_set_names['gn'],
+            "title_jp": image_set_names['gj'],
+            "img_count": len(image_links)
+        }
+        with open(os.path.join(self.download_path, "meta.json"), 'w') as f:
+            f.write(json.dumps(meta))
+
 def filter_links(link_elements, attr_keys, substring):
     return [link_element.attrs[attr_keys] for link_element in link_elements if attr_keys in link_element.attrs and substring in link_element.attrs[attr_keys]]
 
-def get_image_set_name(title_elements):
-    image_set_name = [element.text for element in title_elements if 'id' in element.attrs and element.attrs['id'] == 'gj'][0]
-    if not image_set_name:
-        image_set_name = [element.text for element in title_elements if 'id' in element.attrs and element.attrs['id'] == 'gn'][0]
-    return image_set_name
+
+def get_image_set_names(title_elements):
+    image_set_name_gj = [element.text for element in title_elements if 'id' in element.attrs and element.attrs['id'] == 'gj'][0]
+    image_set_name_gn = [element.text for element in title_elements if 'id' in element.attrs and element.attrs['id'] == 'gn'][0]
+    image_set_names = {
+        'gj': image_set_name_gj,
+        'gn': image_set_name_gn
+    }
+    return image_set_names
+
 
 def is_valid_image_response(response):
     if response.status_code < 400 and 'Content-Type' in response.headers and 'image' in response.headers['Content-Type']:
@@ -85,24 +101,18 @@ def is_valid_image_response(response):
     else:
         return False
 
+
 def is_a_valid_start_url(url):
     if "https://e-hentai.org/g/" in url:
         return True
     else:
         return False
 
-def slugify(value):
-    # From django text utils
-    """
-    Convert to ASCII if 'allow_unicode' is False. Convert spaces to hyphens.
-    Remove characters that aren't alphanumerics, underscores, or hyphens.
-    Convert to lowercase. Also strip leading and trailing whitespace.
-    """
-    value = str(value)
-    value = unicodedata.normalize('NFKC', value)
-    value = re.sub(r'[^\(\)\[\]\w\s-]', '', value).strip().lower()
-    # return re.sub(r'[-\s]+', '-', value)
-    return value
+
+def hash(string):
+    hash = hashlib.sha1(string.encode('utf-8')).hexdigest()
+    return hash
+
 
 download_dir = "./downloads"
 
@@ -114,8 +124,9 @@ if __name__ == "__main__":
 
     manager = DownloadManager()
 
-    image_links, image_set_name = manager.get_image_links(args.url)
-    manager.create_image_dir(image_set_name)
+    image_links, image_set_names = manager.get_image_links(args.url)
+    manager.create_image_dir(image_set_names)
+    manager.write_metadata(image_set_names, image_links)
 
     for image_link in image_links:
         manager.download_image(image_link)
