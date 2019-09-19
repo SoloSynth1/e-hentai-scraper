@@ -1,7 +1,10 @@
 import argparse
 import os
-import string
 import json
+import re
+
+import unicodedata
+
 from requests_html import HTMLSession
 
 class DownloadManager:
@@ -31,6 +34,7 @@ class DownloadManager:
         return image_links, image_set_name
 
     def create_image_dir(self, dir_name):
+        dir_name = slugify(dir_name)
         full_dir_path = os.path.join(download_dir, dir_name)
         if dir_name not in os.listdir(download_dir) and not os.path.isdir(full_dir_path):
             os.mkdir(full_dir_path)
@@ -87,11 +91,18 @@ def is_a_valid_start_url(url):
     else:
         return False
 
-def format_filename(s):
-    # modified from https://gist.github.com/seanh/93666
-    valid_chars = "-_.() %s%s" % (string.ascii_letters, string.digits)
-    filename = ''.join(c if c in valid_chars else "_" for c in s)
-    return filename
+def slugify(value):
+    # From django text utils
+    """
+    Convert to ASCII if 'allow_unicode' is False. Convert spaces to hyphens.
+    Remove characters that aren't alphanumerics, underscores, or hyphens.
+    Convert to lowercase. Also strip leading and trailing whitespace.
+    """
+    value = str(value)
+    value = unicodedata.normalize('NFKC', value)
+    value = re.sub(r'[^\(\)\[\]\w\s-]', '', value).strip().lower()
+    # return re.sub(r'[-\s]+', '-', value)
+    return value
 
 download_dir = "./downloads"
 
